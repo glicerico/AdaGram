@@ -127,7 +127,9 @@ function read_words(f::IOStream, start_pos::Int64, end_pos::Int64,
   i = 1
   while i <= length(doc) && words_read[1] < total_words
     word = consume(words)
-    id = get(dict.word2id, word, -1)
+    println("here", word)
+    #id = get(dict.word2id, word, -1)
+    id = -1
     if id == -1
       continue
     elseif rand() < 1. - sqrt(threshold / (freqs[id] / total_words))
