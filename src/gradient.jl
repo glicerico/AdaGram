@@ -16,50 +16,52 @@ function inplace_train_vectors!(vm::VectorModel, doc::DenseArray{Tw},
 
 	tic()
 	for i in 1:N
-		x = doc[i]
-		lr1 = max(start_lr * (1 - words_read[1] / (total_words+1)), start_lr * 1e-4)
-		lr2 = lr1
+		sent = doc[i]
+		for x in sent
+			lr1 = max(start_lr * (1 - words_read[1] / (total_words+1)), start_lr * 1e-4)
+			lr2 = lr1
 
-		random_reduce = context_cut ? rand(1:window_length-1) : 0
-		window = window_length - random_reduce
+			random_reduce = context_cut ? rand(1:window_length-1) : 0
+			window = window_length - random_reduce
 
-		z[:] = 0.
+			z[:] = 0.
 
-		n_senses = var_init_z!(vm, x, z)
-		senses += n_senses
-		max_senses = max(max_senses, n_senses)
-		for j in max(1, i - window):min(N, i + window) #
-			if i == j continue end
-			var_update_z!(vm, x, doc[j], z)
+			n_senses = var_init_z!(vm, x, z)
+			senses += n_senses
+			max_senses = max(max_senses, n_senses)
+			for j in max(1, i - window):min(N, i + window) #
+				if i == j continue end
+				var_update_z!(vm, x, doc[j], z)
+			end
+
+			exp_normalize!(z)
+
+			for j in max(1, i - window):min(N, i + window)
+				if i == j continue end
+				y = doc[j]
+
+				ll = in_place_update!(vm, x, y, z, lr1, in_grad, out_grad, sense_treshold)
+
+				total_ll[2] += 1
+				total_ll[1] += (ll - total_ll[1]) / total_ll[2]
+				
+			end
+
+			words_read[1] += 1
+
+			#variational update for q(pi_v)
+			var_update_counts!(vm, x, z, lr2)
+
+			if i % batch == 0
+				time_per_kword = batch / toq() / 1000
+				@printf("%.2f%% %.4f %.4f %.4f %.2f/%.2f %.2f kwords/sec\n",
+						words_read[1] / (total_words / 100),
+						total_ll[1], lr1, lr2, senses / i, max_senses, time_per_kword)
+				tic()
+			end
+
+			if words_read[1] > total_words break end
 		end
-
-		exp_normalize!(z)
-
-		for j in max(1, i - window):min(N, i + window)
-			if i == j continue end
-			y = doc[j]
-
-			ll = in_place_update!(vm, x, y, z, lr1, in_grad, out_grad, sense_treshold)
-
-			total_ll[2] += 1
-			total_ll[1] += (ll - total_ll[1]) / total_ll[2]
-			
-		end
-
-		words_read[1] += 1
-
-		#variational update for q(pi_v)
-		var_update_counts!(vm, x, z, lr2)
-
-		if i % batch == 0
-			time_per_kword = batch / toq() / 1000
-			@printf("%.2f%% %.4f %.4f %.4f %.2f/%.2f %.2f kwords/sec\n",
-					words_read[1] / (total_words / 100),
-					total_ll[1], lr1, lr2, senses / i, max_senses, time_per_kword)
-			tic()
-		end
-
-		if words_read[1] > total_words break end
 	end
 	toq()
 end
@@ -136,7 +138,7 @@ function inplace_train_vectors!(vm::VectorModel, dict::Dictionary, path::Abstrac
 			doc = read_words(file, start_pos, end_pos, dict, buffer,
 				vm.frequencies, threshold, words_read, train_words)
 
-			println("$(length(doc)) words read, $(position(file))/$end_pos")
+			println("$(length(doc)) sentences read, $(position(file))/$end_pos")
 			if length(doc) == 0
 				break
 			end
