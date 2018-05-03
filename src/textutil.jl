@@ -28,7 +28,7 @@ function looped_sent_iterator(f::IO, start_pos::Int64, end_pos::Int64)
     while true
       try
         s = readuntil(f, '\n')
-        if length(w) < 1 break end
+        if length(s) < 1 break end
         s = s[1:end-1]
         if !adagram_isblank(s)
           produce(s)
@@ -145,7 +145,7 @@ function read_words(f::IOStream, start_pos::Int64, end_pos::Int64,
       i += 1
     end
 
-    if length(sentences_ids > 0)
+    if length(sent_ids) > 0
       push!(sentences_ids, sent_ids)
       num_sentences += 1
     else

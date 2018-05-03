@@ -15,7 +15,9 @@ function inplace_train_vectors!(vm::VectorModel, doc::DenseArray{Tw},
 	max_senses = 0.
 
 	tic()
+	w_count = 1
 	for i in 1:N
+		word_index = 1
 		sent = doc[i]
 		for x in sent
 			lr1 = max(start_lr * (1 - words_read[1] / (total_words+1)), start_lr * 1e-4)
@@ -29,16 +31,16 @@ function inplace_train_vectors!(vm::VectorModel, doc::DenseArray{Tw},
 			n_senses = var_init_z!(vm, x, z)
 			senses += n_senses
 			max_senses = max(max_senses, n_senses)
-			for j in max(1, i - window):min(N, i + window) #
-				if i == j continue end
-				var_update_z!(vm, x, doc[j], z)
+			for j in max(1, word_index - window):min(N, word_index + window) #
+				if word_index == j continue end
+				var_update_z!(vm, x, sent[j], z)
 			end
 
 			exp_normalize!(z)
 
-			for j in max(1, i - window):min(N, i + window)
-				if i == j continue end
-				y = doc[j]
+			for j in max(1, word_index - window):min(N, word_index + window)
+				if word_index == j continue end
+				y = sent[j]
 
 				ll = in_place_update!(vm, x, y, z, lr1, in_grad, out_grad, sense_treshold)
 
@@ -52,13 +54,14 @@ function inplace_train_vectors!(vm::VectorModel, doc::DenseArray{Tw},
 			#variational update for q(pi_v)
 			var_update_counts!(vm, x, z, lr2)
 
-			if i % batch == 0
+			if w_count % batch == 0
 				time_per_kword = batch / toq() / 1000
 				@printf("%.2f%% %.4f %.4f %.4f %.2f/%.2f %.2f kwords/sec\n",
 						words_read[1] / (total_words / 100),
-						total_ll[1], lr1, lr2, senses / i, max_senses, time_per_kword)
+						total_ll[1], lr1, lr2, senses / w_count, max_senses, time_per_kword)
 				tic()
 			end
+			w_count += 1
 
 			if words_read[1] > total_words break end
 		end
@@ -133,11 +136,12 @@ function inplace_train_vectors!(vm::VectorModel, dict::Dictionary, path::Abstrac
 
 		seek(file, start_pos)
 		align(file)
-		buffer = zeros(Int32, batch)
+		#buffer = zeros(Int32, batch)
+		buffer = zeros(Int32, 100)
 		while words_read[1] < train_words
 			doc = read_words(file, start_pos, end_pos, dict, buffer,
 				vm.frequencies, threshold, words_read, train_words)
-
+			
 			println("$(length(doc)) sentences read, $(position(file))/$end_pos")
 			if length(doc) == 0
 				break
