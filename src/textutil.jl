@@ -153,5 +153,6 @@ function read_words(f::IOStream, start_pos::Int64, end_pos::Int64,
     end
   end
 
-  return view(sentences_ids, 1:num_sentences-1)
+  return sentences_ids
+  #return view(sentences_ids, 1:num_sentences-1)
 end

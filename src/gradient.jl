@@ -1,6 +1,7 @@
 import Base.BLAS.axpy!
 
-function inplace_train_vectors!(vm::VectorModel, doc::DenseArray{Tw},
+# modified to handle doc as an array of arrays with the sentence ids
+function inplace_train_vectors!(vm::VectorModel, doc,
 		window_length::Int,
 		start_lr::Float64, total_words::Float64, words_read::DenseArray{Int64},
 		total_ll::DenseArray{Float64}; batch::Int=10000,
@@ -19,6 +20,8 @@ function inplace_train_vectors!(vm::VectorModel, doc::DenseArray{Tw},
 	for i in 1:N
 		word_index = 1
 		sent = doc[i]
+		length_sent = length(sent)
+		println(sent)
 		for x in sent
 			lr1 = max(start_lr * (1 - words_read[1] / (total_words+1)), start_lr * 1e-4)
 			lr2 = lr1
@@ -31,17 +34,18 @@ function inplace_train_vectors!(vm::VectorModel, doc::DenseArray{Tw},
 			n_senses = var_init_z!(vm, x, z)
 			senses += n_senses
 			max_senses = max(max_senses, n_senses)
-			for j in max(1, word_index - window):min(N, word_index + window) #
+			for j in max(1, word_index - window):min(length_sent, word_index + window) #
 				if word_index == j continue end
 				var_update_z!(vm, x, sent[j], z)
 			end
 
 			exp_normalize!(z)
 
-			for j in max(1, word_index - window):min(N, word_index + window)
+			for j in max(1, word_index - window):min(length_sent, word_index + window)
 				if word_index == j continue end
 				y = sent[j]
 
+				println("Training: ", x,", ", y)
 				ll = in_place_update!(vm, x, y, z, lr1, in_grad, out_grad, sense_treshold)
 
 				total_ll[2] += 1
@@ -49,6 +53,7 @@ function inplace_train_vectors!(vm::VectorModel, doc::DenseArray{Tw},
 				
 			end
 
+			word_index += 1
 			words_read[1] += 1
 
 			#variational update for q(pi_v)
@@ -126,6 +131,7 @@ function inplace_train_vectors!(vm::VectorModel, dict::Dictionary, path::Abstrac
 	words_read = shared_zeros(Int64, (1,))
 	total_ll = shared_zeros(Float64, (2,))
 
+	println(dict)
 	function do_work(id::Int)
 		file = open(path)
 
