@@ -133,6 +133,10 @@ function read_words(f::IOStream, start_pos::Int64, end_pos::Int64,
   while i <= length(doc) && words_read[1] < total_words
     sent_ids = Int32[]
     sentence = consume(sentences)
+    if length(sentence) == 0 
+      println("Empty sentence")
+      continue 
+    end
     for word in split(sentence)
       id = get(dict.word2id, word, -1)
       if id == -1

@@ -21,7 +21,7 @@ function inplace_train_vectors!(vm::VectorModel, doc,
 		word_index = 1
 		sent = doc[i]
 		length_sent = length(sent)
-		println(sent)
+		#println(sent)
 		for x in sent
 			lr1 = max(start_lr * (1 - words_read[1] / (total_words+1)), start_lr * 1e-4)
 			lr2 = lr1
@@ -45,7 +45,7 @@ function inplace_train_vectors!(vm::VectorModel, doc,
 				if word_index == j continue end
 				y = sent[j]
 
-				println("Training: ", x,", ", y)
+				#println("Training: ", x,", ", y)
 				ll = in_place_update!(vm, x, y, z, lr1, in_grad, out_grad, sense_treshold)
 
 				total_ll[2] += 1
@@ -131,7 +131,7 @@ function inplace_train_vectors!(vm::VectorModel, dict::Dictionary, path::Abstrac
 	words_read = shared_zeros(Int64, (1,))
 	total_ll = shared_zeros(Float64, (2,))
 
-	println(dict)
+	#println(dict)
 	function do_work(id::Int)
 		file = open(path)
 
@@ -142,8 +142,7 @@ function inplace_train_vectors!(vm::VectorModel, dict::Dictionary, path::Abstrac
 
 		seek(file, start_pos)
 		align(file)
-		#buffer = zeros(Int32, batch)
-		buffer = zeros(Int32, 100)
+		buffer = zeros(Int32, batch)
 		while words_read[1] < train_words
 			doc = read_words(file, start_pos, end_pos, dict, buffer,
 				vm.frequencies, threshold, words_read, train_words)
