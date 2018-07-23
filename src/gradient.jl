@@ -131,7 +131,6 @@ function inplace_train_vectors!(vm::VectorModel, dict::Dictionary, path::Abstrac
 	words_read = shared_zeros(Int64, (1,))
 	total_ll = shared_zeros(Float64, (2,))
 
-	#println(dict)
 	function do_work(id::Int)
 		file = open(path)
 
@@ -141,7 +140,11 @@ function inplace_train_vectors!(vm::VectorModel, dict::Dictionary, path::Abstrac
 		end_pos = start_pos+bytes_per_worker
 
 		seek(file, start_pos)
-		align(file)
+		if start_pos != 0
+			readuntil(file, '\n')
+			start_pos = position(file)
+		end
+		#align(file)
 		buffer = zeros(Int32, batch)
 		while words_read[1] < train_words
 			doc = read_words(file, start_pos, end_pos, dict, buffer,
